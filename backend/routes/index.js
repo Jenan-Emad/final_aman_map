@@ -12,3 +12,4 @@ export default (app) => {
     app.use("/map", hazardActions)
 }
 
+
