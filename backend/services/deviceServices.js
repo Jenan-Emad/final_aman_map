@@ -1,5 +1,4 @@
 import Device from "../models/Device.js";
-import Log from "../models/Log.js";
 import { deviceValidator } from "../validation/index.js";
 
 export const addDevice = async (data) => {
@@ -13,23 +12,38 @@ export const addDevice = async (data) => {
     };
   }
 
-  // validate device fields
-  const isUserLocationValid = await Device.validateUserLocation(data.ipAddress);
-  const isVisitorIdValid = await Device.validateVisitorId(data.visitorId);
-  const isIpAddressValid = await Device.validateIpAddress(data.ipAddress);
-  
-  if (!isUserLocationValid || !isVisitorIdValid || !isIpAddressValid) {
-    return {
-      success: false,
-      status: 400,
-      message: "Something is wrong with your device",
-    };
-  }
-
   try {
-    console.log("device data", data);
-    const device = await Device.create(data); // create device in DB
-    console.log("created device", device);
+    // Check if device already exists
+    let existingDevice = await Device.findOne({ 
+      visitorId: data.visitorId 
+    });
+
+    if (existingDevice) {
+      // Device exists, return it
+      console.log("Device already exists:", existingDevice);
+      return {
+        success: true,
+        status: 200,
+        message: "Device already registered",
+        device: existingDevice,
+      };
+    }
+
+    // Validate device fields only for new devices
+    const isUserLocationValid = await Device.validateUserLocation(data.ipAddress);
+    
+    if (!isUserLocationValid) {
+      return {
+        success: false,
+        status: 400,
+        message: "يجب أن تكون موجوداً في قطاع غزة لاستخدام التطبيق",
+      };
+    }
+
+    // Create new device
+    console.log("Creating new device with data:", data);
+    const device = await Device.create(data);
+    console.log("Created device:", device);
 
     return {
       success: true,
@@ -38,6 +52,7 @@ export const addDevice = async (data) => {
       device,
     };
   } catch (err) {
+    console.error("Error in addDevice service:", err);
     return {
       success: false,
       status: 500,
@@ -45,29 +60,3 @@ export const addDevice = async (data) => {
     };
   }
 };
-
-
-// const getDeviceById = (async (req, res, next) => {
-//     try {
-//         const device = await Device.findById(req.params.id);
-//         if (!device) return res.status(404).send({message: "Device not found"});
-//         res.status(200).send(device);
-//     } catch (error) {
-//         next(error);
-//     }
-// });
-
-// const getAllDevices = (async (req, res, next) => {
-//     try {
-//         const devices = await Device.find();
-//         res.status(200).send(devices);
-//     } catch (error) {
-//         next(error);
-//     }
-// });
-
-// export {
-//   addDevice,
-//   // getDeviceById,
-//   // getAllDevices
-// };

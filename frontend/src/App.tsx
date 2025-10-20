@@ -7,13 +7,16 @@ import 'bootstrap/dist/css/bootstrap.css';
 import imagePath from './assets/location-pin.png';
 import './App.css';
 import type { DANGER_ZONE } from "./types";
-import { REQUIRED_VERIFICATIONS } from "./types";
-import { useState, useCallback } from 'react';
+// import { REQUIRED_VERIFICATIONS } from "./types";
+import { useState, useCallback, useEffect } from 'react';
 import { getSessionId, generateId } from './utils/index';
 import { canPerformAction } from './utils/verification';
 import Toast from './components/Toast';
 import 'react-toastify/dist/ReactToastify.css';
-// Interface للـ toast messages
+import { zonesAPI } from './services/api';
+import { fingerprintService } from './services/fingerprint';
+
+// Interface for toast messages
 interface ToastMessage {
   id: string;
   message: string;
@@ -21,11 +24,41 @@ interface ToastMessage {
 }
 
 function App() {
-  // حالة مودال "عن التطبيق"
   const [showAboutModal, setShowAboutModal] = useState(false);
-
-  // تغيير إلى array بدل object واحد
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [zones, setZones] = useState<DANGER_ZONE[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Initialize fingerprint on app load
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // Initialize fingerprint
+        await fingerprintService.getDeviceInfo();
+        
+        // Load existing hazards from backend
+        await loadHazards();
+      } catch (error) {
+        console.error('Failed to initialize app:', error);
+        showToast('فشل في تحميل البيانات', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  // Load hazards from backend
+  const loadHazards = async () => {
+    try {
+      const hazards = await zonesAPI.getAllHazards();
+      setZones(hazards);
+    } catch (error) {
+      console.error('Error loading hazards:', error);
+      showToast('فشل في تحميل مناطق الخطر', 'error');
+    }
+  };
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -33,46 +66,12 @@ function App() {
     setToasts(prev => [...prev, newToast]);
   };
 
-  // دالة إزالة Toast
   const removeToast = (id: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   };
 
-  const [zones, setZones] = useState<DANGER_ZONE[]>([
-    {
-      id: '1',
-      type: 'bombing',
-      coordinates: [31.5017, 34.4668],
-      radius: 500,
-      description: 'قصف مدفعي في المنطقة',
-      timestamp: new Date(),
-      area: 'غزة',
-      isVerified: false,
-      verificationsByUsers: ['user1', 'user2'],
-      reportedByUsers: ['user3'],
-      endRequests: [],
-      zoneStatus: 'active',
-      reportedAt: new Date(Date.now() - 2.5 * 60 * 60 * 1000)
-    },
-    {
-      id: '2',
-      type: 'evacuation_area',
-      coordinates: [31.5388, 34.4951],
-      radius: 900,
-      description: 'منطقة إخلاء للمدنيين',
-      timestamp: new Date(),
-      area: 'شمال غزة',
-      isVerified: true,
-      verificationsByUsers: ['user1', 'user2', 'user3', 'user4', 'user5'],
-      reportedByUsers: [],
-      endRequests: [],
-      zoneStatus: 'active',
-      reportedAt: new Date(Date.now() - 2.5 * 60 * 60 * 1000)
-    }
-  ]);
-
-  // دالة إضافة منطقة خطر جديدة
-  const handleAddZone = useCallback((newZoneData: Omit<DANGER_ZONE, 'id'>) => {
+  // Handle adding new zone
+  const handleAddZone = useCallback(async (newZoneData: Omit<DANGER_ZONE, 'id'>) => {
     const verification = canPerformAction([], getSessionId(), 'add');
 
     if (!verification.canPerform) {
@@ -80,65 +79,80 @@ function App() {
       return;
     }
 
-    const newZone: DANGER_ZONE = {
-      ...newZoneData,
-      id: generateId()
-    };
-
-    setZones(prev => [...prev, newZone]);
-    showToast('تم إضافة منطقة الخطر بنجاح!', 'success');
-  }, []);
-
-  const handleAction = useCallback((zoneId: string, actionType: 'document' | 'report' | 'end') => {
-    const sessionId = getSessionId();
-
-    setZones(prev => prev.map(zone => {
-      if (zone.id !== zoneId) return zone;
-
-      const verification = canPerformAction(
-        actionType === 'document' ? zone.verificationsByUsers :
-          actionType === 'report' ? zone.reportedByUsers : zone.endRequests,
-        sessionId,
-        actionType
+    try {
+      // Call backend API to add zone
+      const result = await zonesAPI.addZone(
+        newZoneData.type,
+        newZoneData.coordinates,
+        newZoneData.radius,
+        newZoneData.description
       );
 
-      if (!verification.canPerform) {
-        showToast(verification.reason || 'لا يمكن تنفيذ هذا الإجراء', 'error');
-        return zone;
+      if (result.success) {
+        // Add zone to local state with backend ID
+        const newZone: DANGER_ZONE = {
+          ...newZoneData,
+          id: result.hazardId || generateId()
+        };
+        
+        setZones(prev => [...prev, newZone]);
+        showToast('تم إضافة منطقة الخطر بنجاح!', 'success');
+        
+        // Reload hazards to get updated data
+        await loadHazards();
+      } else {
+        showToast(result.message, 'error');
       }
-
-      const updatedZone = { ...zone };
-
-      if (actionType === 'document') {
-        updatedZone.verificationsByUsers = [...zone.verificationsByUsers, sessionId];
-        if (updatedZone.verificationsByUsers.length >= REQUIRED_VERIFICATIONS) {
-          updatedZone.isVerified = true;
-          showToast(`تم توثيق المنطقة "${zone.area}" بنجاح! `, 'success');
-        } else {
-          showToast(`تم إضافة تأكيدك (${updatedZone.verificationsByUsers.length}/${REQUIRED_VERIFICATIONS})`, 'info');
-        }
-      } else if (actionType === 'report') {
-        updatedZone.reportedByUsers = [...zone.reportedByUsers, sessionId];
-        if (updatedZone.reportedByUsers.length >= REQUIRED_VERIFICATIONS) {
-          updatedZone.zoneStatus = 'false_report';
-          showToast('تم الإبلاغ عن المنطقة وستتم إزالتها ', 'warning');
-        } else {
-          showToast(`تم إضافة بلاغك (${updatedZone.reportedByUsers.length}/${REQUIRED_VERIFICATIONS})`, 'warning');
-        }
-      } else if (actionType === 'end') {
-        updatedZone.endRequests = [...zone.endRequests, sessionId];
-        if (updatedZone.endRequests.length >= REQUIRED_VERIFICATIONS) {
-          updatedZone.zoneStatus = 'removed';
-          showToast(`تم تأكيد انتهاء الخطر في "${zone.area}"`, 'info');
-        } else {
-          showToast(`تم طلب انتهاء الخطر (${updatedZone.endRequests.length}/${REQUIRED_VERIFICATIONS})`, 'info');
-        }
-      }
-
-      return updatedZone;
-    }).filter(zone => zone.zoneStatus !== 'false_report' && zone.zoneStatus !== 'removed'));
+    } catch (error: any) {
+      console.error('Error adding zone:', error);
+      showToast('فشل في إضافة منطقة الخطر', 'error');
+    }
   }, []);
 
+  // Handle actions on existing zones
+  const handleAction = useCallback(async (zoneId: string, actionType: 'document' | 'report' | 'end') => {
+    const sessionId = getSessionId();
+
+    // Find the zone
+    const zone = zones.find(z => z.id === zoneId);
+    if (!zone) {
+      showToast('لم يتم العثور على المنطقة', 'error');
+      return;
+    }
+
+    // Verify action can be performed (client-side check)
+    const actionArray = actionType === 'document' ? zone.verificationsByUsers :
+                       actionType === 'report' ? zone.reportedByUsers : zone.endRequests;
+    
+    // Convert to array if it's a number (from backend count)
+    const actionArrayAsStrings = typeof actionArray === 'number' 
+      ? Array(actionArray).fill(sessionId) 
+      : actionArray as string[];
+
+    const verification = canPerformAction(actionArrayAsStrings, sessionId, actionType);
+
+    if (!verification.canPerform) {
+      showToast(verification.reason || 'لا يمكن تنفيذ هذا الإجراء', 'error');
+      return;
+    }
+
+    try {
+      // Call backend API
+      const result = await zonesAPI.performAction(zoneId, actionType);
+
+      if (result.success) {
+        showToast(result.message, 'success');
+        
+        // Reload hazards to get updated data
+        await loadHazards();
+      } else {
+        showToast(result.message, 'error');
+      }
+    } catch (error: any) {
+      console.error('Error performing action:', error);
+      showToast('فشل في تنفيذ الإجراء', 'error');
+    }
+  }, [zones]);
 
   const handleAboutClick = useCallback(() => {
     setShowAboutModal(true);
@@ -147,6 +161,24 @@ function App() {
   const handleAboutClose = useCallback(() => {
     setShowAboutModal(false);
   }, []);
+
+  if (isLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontFamily: 'Cairo, sans-serif',
+        direction: 'rtl'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="spinner" style={{ margin: '0 auto 20px' }}></div>
+          <p>جاري تحميل التطبيق...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div dir='rtl' className="aman-map-app">

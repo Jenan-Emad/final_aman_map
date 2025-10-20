@@ -5,6 +5,7 @@ import HazardController from "./HazardController.js";
 import LogController from "./LogController.js";
 import ReportController from "./ReportController.js";
 import {existHazardAction1} from "./ExistHazardActionsController.js";
+import {getAllHazards} from "./GetHazardsController.js";
 
 export {
     DeviceController,
@@ -12,5 +13,6 @@ export {
     LogController,
     ReportController,
     addHazard,
-    existHazardAction1
+    existHazardAction1,
+    getAllHazards
 }

@@ -6,12 +6,11 @@ import { DANGER_COLORS, REPORT_TYPE_LABELS } from "../types";
 import type { DANGER_ZONE } from "../types";
 import { ACTION_LABELS, REQUIRED_VERIFICATIONS, DEFAULT_ZONE_RADIUS } from "../types";
 import { getSessionId } from "../utils";
-import { canPerformAction } from "../utils/verification";
+// import { canPerformAction } from "../utils/verification";
 import { timeAgo } from "../utils";
 import { useState, useCallback, useEffect } from "react";
 import ReportForm from "./ReportForm";
 import MapLoadingSkeleton from "./MapLoadingSkeleton";
-
 
 interface MapComponentProps {
     zones: DANGER_ZONE[];
@@ -47,20 +46,16 @@ const MapComponent: React.FC<MapComponentProps> = ({ zones, onAction, onAddZone,
     const GAZA_CENTER: [number, number] = [31.5017, 34.4668];
     const [showReportForm, setShowReportForm] = useState(false);
     const [clickedCoordinates, setClickedCoordinates] = useState<[number, number] | null>(null);
-    
-    // Loading state - بسيط وفعال
     const [isMapLoading, setIsMapLoading] = useState(true);
 
-    // إخفاء الـ skeleton بعد وقت قصير
     useEffect(() => {
         const timer = setTimeout(() => {
             setIsMapLoading(false);
-        }, 1000); // ثانية واحدة فقط
+        }, 1000);
 
         return () => clearTimeout(timer);
     }, []);
 
-    // استخدام useCallback لتحسين الأداء
     const handleMapClick = useCallback((lat: number, lng: number) => {
         console.log('handleMapClick تم استدعاؤها:', lat, lng);
         setClickedCoordinates([lat, lng]);
@@ -69,7 +64,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ zones, onAction, onAddZone,
 
     const handleOutsideGazaClick = useCallback(() => {
         console.log('نقرة خارج غزة');
-        onShowToast(' يجب النقر داخل حدود قطاع غزة فقط', 'error');
+        onShowToast('يجب النقر داخل حدود قطاع غزة فقط', 'error');
     }, [onShowToast]);
 
     const handleReportSubmit = useCallback((type: DANGER_ZONE['type'], description: string, radius: number) => {
@@ -84,7 +79,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ zones, onAction, onAddZone,
             reportedAt: new Date(),
             area: determineAreaName(clickedCoordinates),
             isVerified: false,
-            verificationsByUsers: [getSessionId()],
+            verificationsByUsers: [],
             reportedByUsers: [],
             endRequests: [],
             zoneStatus: 'active'
@@ -93,16 +88,13 @@ const MapComponent: React.FC<MapComponentProps> = ({ zones, onAction, onAddZone,
         onAddZone(newZone);
         setShowReportForm(false);
         setClickedCoordinates(null);
-        
-        onShowToast(` تم إضافة ${REPORT_TYPE_LABELS[type]} بنصف قطر ${radius}م بنجاح!`, 'success');
-    }, [clickedCoordinates, onAddZone, onShowToast]);
+    }, [clickedCoordinates, onAddZone]);
 
     const handleReportClose = useCallback(() => {
         setShowReportForm(false);
         setClickedCoordinates(null);
     }, []);
 
-    // دالة لتحديد اسم المنطقة بناءً على الإحداثيات
     const determineAreaName = (coordinates: [number, number]): string => {
         const [lat] = coordinates;
         
@@ -130,14 +122,18 @@ const MapComponent: React.FC<MapComponentProps> = ({ zones, onAction, onAddZone,
 
     const createCustomClusterIcon = (cluster: any) => {
         return new DivIcon({
-            html: `<div class="salut" >
+            html: `<div class="salut">
             <strong>${cluster.getChildCount()}</strong></div>`,
             className: "custom-marker-cluster",
             iconSize: point(33, 33, true)
         });
     };
 
-    // Show skeleton while loading
+    // Helper function to get count from verifications (number or array)
+    const getCount = (value: string[] | number): number => {
+        return typeof value === 'number' ? value : value.length;
+    };
+
     if (isMapLoading) {
         return <MapLoadingSkeleton />;
     }
@@ -198,14 +194,14 @@ const MapComponent: React.FC<MapComponentProps> = ({ zones, onAction, onAddZone,
                                     <div className="popup-header">
                                         <h4>{zone.area}</h4>
                                         {zone.isVerified && (
-                                            <span className="verified-badge">موثق </span>
+                                            <span className="verified-badge">موثق</span>
                                         )}
                                     </div>
 
                                     <div className="popup-details">
                                         <p><strong>النوع:</strong> {REPORT_TYPE_LABELS[zone.type]}</p>
                                         <p><strong>نصف القطر:</strong> {zone.radius}م</p>
-                                        <p><strong>التفاصيل:</strong> {zone.description}</p>
+                                        {/* <p><strong>التفاصيل:</strong> {zone.description}</p> */}
                                         <div className="time-info">
                                             {timeAgo(zone.timestamp)}
                                         </div>
@@ -215,7 +211,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ zones, onAction, onAddZone,
                                                 color: zone.isVerified ? '#10b981' : '#f59e0b',
                                                 fontWeight: 'bold' 
                                             }}>
-                                                {zone.verificationsByUsers.length}/{REQUIRED_VERIFICATIONS}
+                                                {getCount(zone.verificationsByUsers)}/{REQUIRED_VERIFICATIONS}
                                             </span>
                                         </p>
                                     </div>
@@ -224,28 +220,25 @@ const MapComponent: React.FC<MapComponentProps> = ({ zones, onAction, onAddZone,
                                         <button
                                             className="popup-btn verify"
                                             onClick={() => onAction(zone.id, 'document')}
-                                            disabled={!canPerformAction(zone.verificationsByUsers, getSessionId(), 'document').canPerform}
                                             title="تأكيد وجود الخطر"
                                         >
-                                            {ACTION_LABELS.document} ({zone.verificationsByUsers.length})
+                                            {ACTION_LABELS.document} ({getCount(zone.verificationsByUsers)})
                                         </button>
 
                                         <button
                                             className="popup-btn report"
                                             onClick={() => onAction(zone.id, 'report')}
-                                            disabled={!canPerformAction(zone.reportedByUsers, getSessionId(), 'report').canPerform}
                                             title="الإبلاغ عن معلومات خاطئة"
                                         >
-                                            {ACTION_LABELS.report} ({zone.reportedByUsers.length})
+                                            {ACTION_LABELS.report} ({getCount(zone.reportedByUsers)})
                                         </button>
 
                                         <button
                                             className="popup-btn end"
                                             onClick={() => onAction(zone.id, 'end')}
-                                            disabled={!canPerformAction(zone.endRequests, getSessionId(), 'end').canPerform}
                                             title="تأكيد انتهاء الخطر"
                                         >
-                                            {ACTION_LABELS.end} ({zone.endRequests.length})
+                                            {ACTION_LABELS.end} ({getCount(zone.endRequests)})
                                         </button>
                                     </div>
 

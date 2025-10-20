@@ -21,15 +21,15 @@ const createHazard = async (req, res) => {
     }
 };
 
-// عرض كل الـ Hazards
-exports.getHazards = async (req, res) => {
-  try {
-    const hazards = await hazardService.getHazards();
-    res.json({ success: true, data: hazards });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
+// // عرض كل الـ Hazards
+// exports.getHazards = async (req, res) => {
+//   try {
+//     const hazards = await hazardService.getHazards();
+//     res.json({ success: true, data: hazards });
+//   } catch (err) {
+//     res.status(500).json({ success: false, message: err.message });
+//   }
+// };
 
 // عرض Hazard واحد حسب ID
 exports.getHazardById = async (req, res) => {
