@@ -22,18 +22,22 @@ const addReport = async (data) => {
         }
         console.log("report data", data);
         const report = await Report.create(data);
-        console.log("created report:" , report);
+        console.log("created report:", report);
         report.confirmations.push(data.reportedByDevice);
         const hazard = await Hazard.findOne(report.hazard);
         console.log("related hazard:", hazard);
+        
         switch (report.verificationType) {
-          case "document":
-            hazard.verificationSummary.documentCount++;
-          case "report":
-            hazard.verificationSummary.reportCount++;
-          case "end":
-            hazard.verificationSummary.endCount++;
-        } 
+            case "document":
+                hazard.verificationSummary.documentCount++;
+                break;
+            case "report":
+                hazard.verificationSummary.reportCount++;
+                break;
+            case "end":
+                hazard.verificationSummary.endRequestCount++;
+                break;
+        }
         console.log("created report", report);
         return {
             success: true,
@@ -69,6 +73,6 @@ const addReport = async (data) => {
 // };
 
 
-export{
+export {
     addReport
 };

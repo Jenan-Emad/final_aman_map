@@ -1,11 +1,11 @@
-import {
-  createHazard,
-  addReport,
-  addLog,
-  addDevice,
-} from "../services/index.js";
-import { Hazard, Report } from "../models/index.js";
-import mongoose from "mongoose";
+// import {
+//   createHazard,
+//   addReport,
+//   addLog,
+//   addDevice,
+// } from "../services/index.js";
+// import { Hazard, Report } from "../models/index.js";
+// import mongoose from "mongoose";
 
 // const validateRequest = (body) => {
 //   const { verificationType, hazardId, device } = body;
@@ -138,142 +138,139 @@ import mongoose from "mongoose";
 //   }
 // };
 
+import {
+  addReport,
+  addLog,
+  addDevice,
+} from "../services/index.js";
+import { Hazard, Report, Log } from "../models/index.js";
+
 const existHazardAction1 = async (req, res, next) => {
   try {
     const verificationType = req.body.verificationType;
     const validTypes = ["document", "report", "end"];
+    
     if (!validTypes.includes(verificationType) || !verificationType) {
-      return res
-        .status(400)
-        .send({ message: "Invalid or missing verificationType" });
+      return res.status(400).send({ message: "Invalid or missing verificationType" });
     }
 
     if (!req.body.hazardId) {
       return res.status(400).send({ message: "Hazard ID is required" });
     }
 
+    if (!req.body.device || !req.body.device.visitorId) {
+      return res.status(400).send({ message: "Device information is required" });
+    }
+
     const hazardId = req.body.hazardId;
 
-    // find report by hazard + verificationType
+    // ✅ 1. احصل على الـ device أولاً
+    const deviceResult = await addDevice(req.body.device);
+    if (!deviceResult.success) {
+      return res.status(deviceResult.status).send({ message: deviceResult.message });
+    }
+
+    // ✅ 2. تحقق من الـ cooldown
+    const canPerformAction = await Log.validateLastActivation(
+      deviceResult.device._id.toString(),
+      verificationType
+    );
+
+    if (!canPerformAction) {
+      return res.status(429).send({ 
+        message: "يجب الانتظار 15 دقيقة قبل تنفيذ نفس الإجراء مرة أخرى",
+        code: 'COOLDOWN_ACTIVE'
+      });
+    }
+
+    // ✅ 3. ابحث عن الـ report
     let report = await Report.findOne({ hazard: hazardId, verificationType });
+    
     if (!report) {
-      // create device if needed
-      const newDevice = await addDevice(req.body.device);
-
-      if (!newDevice.success) {
-        return res
-          .status(newDevice.status)
-          .send({ message: newDevice.message });
-      }
-
-      // create report
+      // إنشاء report جديد
       const newReportResult = await addReport({
         hazard: hazardId,
         verificationType,
-        reportedByDevice: newDevice.device._id.toString(),
+        reportedByDevice: deviceResult.device._id.toString(),
       });
 
       if (!newReportResult.success) {
-        return res
-          .status(newReportResult.status)
-          .send({ message: newReportResult.message });
+        return res.status(newReportResult.status).send({ message: newReportResult.message });
       }
-      //update the hazard status
-      const hazard = await Hazard.findById(hazardId);
-      await hazard.resolveHazardStatus(
-        hazard.status,
-        hazard.verificationSummary
-      );
 
-      // normalize report variable 
       report = newReportResult.report || newReportResult;
 
-      const log = await addLog(
-        report._id,
-        newDevice.device._id,
-        verificationType
-      );
-      if (!log.success) {
-        console.error("addLog error:", log.message);
-      }
-    }
-
-    // check if the device already confirmed this report
-    if (
-      await Report.validateNotConfirmed(
-        req.body.verificationType,
-        req.body.device.visitorId
-      )
-    ) {
-      const deviceResult = await addDevice(req.body.device);
-      if (!deviceResult.success) {
-        return res
-          .status(deviceResult.status)
-          .send({ message: deviceResult.message });
-      }
-
-      // add this device to report confirmations
-      report.confirmations = report.confirmations || [];
-      report.confirmations.push(deviceResult.device._id);
-      await report.save();
-
-      // update the summary counter in the hazard
-      const hazard = await Hazard.findById(report.hazard);
-      if (hazard) {
-        switch (verificationType) {
-          case "document":
-            hazard.verificationSummary.documentCount += 1;
-            break;
-          case "report":
-            hazard.verificationSummary.reportCount += 1;
-            break;
-          case "end":
-            hazard.verificationSummary.endRequestCount += 1;
-            break;
-        }
-      }
-
-      //update the hazard status
-      await hazard.resolveHazardStatus(
-        hazard.status,
-        hazard.verificationSummary
-      );
-      hazard.save();
-
-      // add log entry (assumes addLog returns a promise)
+      // ✅ حفظ الـ log
       const log = await addLog({
         reportId: report._id.toString(),
         verifyingDevice: deviceResult.device._id.toString(),
         verificationType,
       });
+      
       if (!log.success) {
         console.error("addLog error:", log.message);
       }
 
-      return res
-        .status(200)
-        .send({ message: "Verification recorded successfully" });
-    } else {
-      return res
-        .status(400)
-        .send({ message: "Device has already confirmed this report" });
+      // ✅ تحديث حالة الـ hazard
+      const hazard = await Hazard.findById(hazardId);
+      if (hazard) {
+        await hazard.resolveHazardStatus();
+        await hazard.save(); // ✅ مهم جداً!
+      }
+
+      return res.status(201).send({ message: "تم إنشاء التقرير وتسجيل التحقق بنجاح" });
     }
+
+    // ✅ 4. تحقق إذا الجهاز أكد من قبل
+    const alreadyConfirmed = report.confirmations.some(
+      confirmId => confirmId.toString() === deviceResult.device._id.toString()
+    );
+
+    if (alreadyConfirmed) {
+      return res.status(400).send({ message: "لقد قمت بتأكيد هذا التقرير مسبقاً" });
+    }
+
+    // ✅ 5. أضف التأكيد الجديد
+    report.confirmations.push(deviceResult.device._id);
+    await report.save();
+
+    // ✅ 6. حدّث عداد الـ hazard
+    const hazard = await Hazard.findById(report.hazard);
+    if (hazard) {
+      switch (verificationType) {
+        case "document":
+          hazard.verificationSummary.documentCount += 1;
+          break;
+        case "report":
+          hazard.verificationSummary.reportCount += 1;
+          break;
+        case "end":
+          hazard.verificationSummary.endRequestCount += 1;
+          break;
+      }
+
+      // ✅ حدّث الحالة واحفظ
+      await hazard.resolveHazardStatus();
+      await hazard.save(); // ✅ مع await
+    }
+
+    // ✅ 7. سجّل في الـ log
+    const log = await addLog({
+      reportId: report._id.toString(),
+      verifyingDevice: deviceResult.device._id.toString(),
+      verificationType,
+    });
+    
+    if (!log.success) {
+      console.error("addLog error:", log.message);
+    }
+
+    return res.status(200).send({ message: "تم تسجيل التحقق بنجاح" });
+      
   } catch (err) {
+    console.error("Error in existHazardAction1:", err);
     next(err);
   }
-
-
-  // NEW: Check cooldown before processing
-const canPerformAction = await Log.validateLastActivation(
-  deviceResult.device._id.toString(),
-  verificationType
-);
-
-if (!canPerformAction) {
-  return res.status(429).send({ 
-    message: "يجب الانتظار 10 دقيقة..." 
-  });
-}
 };
 
 export { existHazardAction1 };

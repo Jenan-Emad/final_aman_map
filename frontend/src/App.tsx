@@ -109,85 +109,86 @@ function App() {
     }
   }, []);
 
-  // Handle actions on existing zones
-  const handleAction = useCallback(async (zoneId: string, actionType: 'document' | 'report' | 'end') => {
+  // // Handle actions on existing zones
+  // const handleAction = useCallback(async (zoneId: string, actionType: 'document' | 'report' | 'end') => {
+  //   const sessionId = getSessionId();
+
+  //   // Find the zone
+  //   const zone = zones.find(z => z.id === zoneId);
+  //   if (!zone) {
+  //     showToast('لم يتم العثور على المنطقة', 'error');
+  //     return;
+  //   }
+
+  //   // Verify action can be performed (client-side check)
+  //   const actionArray = actionType === 'document' ? zone.verificationsByUsers :
+  //                      actionType === 'report' ? zone.reportedByUsers : zone.endRequests;
+    
+  //   // Convert to array if it's a number (from backend count)
+  //   const actionArrayAsStrings = typeof actionArray === 'number' 
+  //     ? Array(actionArray).fill(sessionId) 
+  //     : actionArray as string[];
+
+  //   const verification = canPerformAction(actionArrayAsStrings, sessionId, actionType);
+
+  //   if (!verification.canPerform) {
+  //     showToast(verification.reason || 'لا يمكن تنفيذ هذا الإجراء', 'error');
+  //     return;
+  //   }
+
+  //   try {
+  //     // Call backend API
+  //     const result = await zonesAPI.performAction(zoneId, actionType);
+
+  //     if (result.success) {
+  //       showToast(result.message, 'success');
+        
+  //       // Reload hazards to get updated data
+  //       await loadHazards();
+  //     } else {
+  //       showToast(result.message, 'error');
+  //     }
+  //   } catch (error: any) {
+  //     console.error('Error performing action:', error);
+  //     showToast('فشل في تنفيذ الإجراء', 'error');
+  //   }
+  // }, [zones]);
+
+const handleAction = useCallback(async (zoneId: string, actionType: 'document' | 'report' | 'end') => {
     const sessionId = getSessionId();
 
-    // Find the zone
     const zone = zones.find(z => z.id === zoneId);
     if (!zone) {
       showToast('لم يتم العثور على المنطقة', 'error');
       return;
     }
 
-    // Verify action can be performed (client-side check)
-    const actionArray = actionType === 'document' ? zone.verificationsByUsers :
-                       actionType === 'report' ? zone.reportedByUsers : zone.endRequests;
-    
-    // Convert to array if it's a number (from backend count)
-    const actionArrayAsStrings = typeof actionArray === 'number' 
-      ? Array(actionArray).fill(sessionId) 
-      : actionArray as string[];
-
-    const verification = canPerformAction(actionArrayAsStrings, sessionId, actionType);
-
-    if (!verification.canPerform) {
-      showToast(verification.reason || 'لا يمكن تنفيذ هذا الإجراء', 'error');
-      return;
-    }
-
     try {
-      // Call backend API
       const result = await zonesAPI.performAction(zoneId, actionType);
 
       if (result.success) {
         showToast(result.message, 'success');
-        
-        // Reload hazards to get updated data
         await loadHazards();
       } else {
-        showToast(result.message, 'error');
+        // Check if it's a cooldown error
+        if (result.message.includes('10 دقيقة')) {
+          showToast('⏳ ' + result.message, 'warning');
+        } else {
+          showToast(result.message, 'error');
+        }
       }
     } catch (error: any) {
       console.error('Error performing action:', error);
-      showToast('فشل في تنفيذ الإجراء', 'error');
+      
+      // Handle specific error codes
+      if (error.response?.status === 429) {
+        showToast(' يجب الانتظار 10 دقيقة قبل تنفيذ نفس الإجراء مرة أخرى', 'warning');
+        await loadHazards();
+      } else {
+        showToast('فشل في تنفيذ الإجراء', 'error');
+      }
     }
   }, [zones]);
-
-// const handleAction = useCallback(async (zoneId: string, actionType: 'document' | 'report' | 'end') => {
-//     const sessionId = getSessionId();
-
-//     const zone = zones.find(z => z.id === zoneId);
-//     if (!zone) {
-//       showToast('لم يتم العثور على المنطقة', 'error');
-//       return;
-//     }
-
-//     try {
-//       const result = await zonesAPI.performAction(zoneId, actionType);
-
-//       if (result.success) {
-//         showToast(result.message, 'success');
-//         await loadHazards();
-//       } else {
-//         // Check if it's a cooldown error
-//         if (result.message.includes('10 دقيقة')) {
-//           showToast('⏳ ' + result.message, 'warning');
-//         } else {
-//           showToast(result.message, 'error');
-//         }
-//       }
-//     } catch (error: any) {
-//       console.error('Error performing action:', error);
-      
-//       // Handle specific error codes
-//       if (error.response?.status === 429) {
-//         showToast(' يجب الانتظار 10 دقيقة قبل تنفيذ نفس الإجراء مرة أخرى', 'warning');
-//       } else {
-//         showToast('فشل في تنفيذ الإجراء', 'error');
-//       }
-//     }
-//   }, [zones]);
 
 
   const handleAboutClick = useCallback(() => {

@@ -45,7 +45,7 @@ logSchema.statics.validateLastActivation = async function(verifiedBy, verificati
   const diffInMinutes = (now - log.createdAt) / (1000 * 60); // difference in minutes
   
   // Require 15 minutes between same action types
-  if (diffInMinutes < 15) {
+  if (diffInMinutes < 1) {
     console.log(`⏳ Cooldown active: ${Math.ceil(15 - diffInMinutes)} minutes remaining for ${verificationType}`);
     return false; // Too soon, reject
   }
