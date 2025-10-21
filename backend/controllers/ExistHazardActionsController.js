@@ -185,7 +185,7 @@ const existHazardAction1 = async (req, res, next) => {
         hazard.verificationSummary
       );
 
-      // normalize report variable (service might return result.report or the report directly)
+      // normalize report variable 
       report = newReportResult.report || newReportResult;
 
       const log = await addLog(
@@ -261,6 +261,19 @@ const existHazardAction1 = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+
+
+  // NEW: Check cooldown before processing
+const canPerformAction = await Log.validateLastActivation(
+  deviceResult.device._id.toString(),
+  verificationType
+);
+
+if (!canPerformAction) {
+  return res.status(429).send({ 
+    message: "يجب الانتظار 10 دقيقة..." 
+  });
+}
 };
 
 export { existHazardAction1 };

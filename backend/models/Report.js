@@ -47,21 +47,45 @@ reportSchema.index({ coordinates: "2dsphere" }); // Geospatial index
 
 //validation functions
 
-//validate if it included in confirmations
+// //validate if it included in confirmations
+// reportSchema.statics.validateNotConfirmed = async function (
+//   verificationType,
+//   visitorId
+// ) {
+//   const report = await this.findOne({visitorId: visitorId, verificationType: verificationType});
+//   if (!report) {
+//     return true; // Report does not exist
+//   }
+
+//   for (let confirm of report.confirmations) {
+//     if (confirm.toString() === visitorId.toString() && verificationType === report.verificationType) {
+//       return false; // Device already confirmed
+//     }
+//   }
+//   return true; // Not confirmed yet
+// };
+
+//validate if device already confirmed this report
 reportSchema.statics.validateNotConfirmed = async function (
   verificationType,
   visitorId
 ) {
-  const report = await this.findOne({visitorId: visitorId, verificationType: verificationType});
+  // Find report with this verification type
+  const report = await this.findOne({ verificationType: verificationType });
+  
   if (!report) {
-    return true; // Report does not exist
+    return true; // No report exists for this type, so valid
   }
 
-  for (let confirm of report.confirmations) {
-    if (confirm.toString() === visitorId.toString() && verificationType === report.verificationType) {
-      return false; // Device already confirmed
-    }
+  // Check if this device is in confirmations
+  const deviceInConfirmations = report.confirmations.some(
+    confirmId => confirmId.toString() === visitorId.toString()
+  );
+
+  if (deviceInConfirmations) {
+    return false; // Device already confirmed
   }
+
   return true; // Not confirmed yet
 };
 

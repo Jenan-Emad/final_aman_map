@@ -143,7 +143,7 @@ const MapComponent: React.FC<MapComponentProps> = ({ zones, onAction, onAddZone,
             <MapContainer 
                 center={GAZA_CENTER} 
                 zoom={12} 
-                style={{ height: "100vh", width: "100%", cursor: "crosshair" }}
+                style={{ height: "85vh", width: "100%", minHeight: "555px" }}
                 zoomControl={true}
                 attributionControl={false}
             >

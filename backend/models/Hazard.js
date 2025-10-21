@@ -23,10 +23,11 @@ const hazardSchema = new mongoose.Schema({
       required: true,
     },
   },
-  dangerType: { 
+  dangerType: {
     type: String,
-    enum: ["airstrike", "artillery", "naval_shelling", "other"], 
-    required: true },
+    enum: ["airstrike", "artillery", "naval_shelling", "other"],
+    required: true
+  },
   //the final state of the hazard
   status: {
     documented: { type: Boolean, default: false },
@@ -86,10 +87,9 @@ hazardSchema.statics.pointInGazaPolygon = function (lat, lng) {
 };
 
 //validate crowdSourcing and update the hazard status using priority based system and multi-state system
-//this code is taken from ai model suggestions :)
 
 
-hazardSchema.methods.resolveHazardStatus = async function() {
+hazardSchema.methods.resolveHazardStatus = async function () {
   const verificationCounts = {
     document: this.verificationSummary.documentCount,
     report: this.verificationSummary.reportCount,
@@ -105,7 +105,7 @@ hazardSchema.methods.resolveHazardStatus = async function() {
     .filter(([action, count]) => count >= 5)
     .map(([action]) => action);
 
-    //If no actions reached threshold, return current status
+  //If no actions reached threshold, return current status
   if (qualifiedActions.length === 0) {
     this.status.pending = true;
     if (!this.status.displayStatus) {
@@ -114,15 +114,16 @@ hazardSchema.methods.resolveHazardStatus = async function() {
     return this.status;
   }
 
-   // Find highest priority action
+  // Find highest priority action
   let resolvedAction = qualifiedActions.reduce((highest, current) => {
     return ACTION_PRIORITY[current] > ACTION_PRIORITY[highest] ? current : highest;
   });
 
-    // ⚠️ Allow "end" only if hazard has been documented for >= 1 day (24h)
+  // ⚠️ Allow "end" only if hazard has been documented for >= 1 day (24h)
   // const ONE_DAY_MS = 24 * 60 * 60 * 1000;
   //for testing puporses we set it to 1 minute
   const test_time_MS = 1 * 60 * 1000; // 1 minute for testing
+  // const ONE_DAY_MS = 24 * 60 * 60 * 1000; // 24 hours for production
   const canEndSafely =
     qualifiedActions.includes("end") &&
     this.status.documented &&
@@ -137,12 +138,12 @@ hazardSchema.methods.resolveHazardStatus = async function() {
   this.updateDisplayStatus(resolvedAction);
 
   return this.status;
-  
+
 }
 
 //helper functions
 
-hazardSchema.methods.updateDisplayStatus = function(resolvedAction) {
+hazardSchema.methods.updateDisplayStatus = function (resolvedAction) {
   switch (resolvedAction) {
     case 'document':
       this.status.displayStatus = 'documented 📄';
@@ -166,7 +167,7 @@ hazardSchema.methods.updateMultiState = async function (verificationCounts) {
     if (count >= 5) {
       switch (action) {
         case 'document':
-          if(!this.status.documented){
+          if (!this.status.documented) {
             this.status.documented = true;
             this.status.documentedAt = timestamp;
           }
@@ -174,7 +175,7 @@ hazardSchema.methods.updateMultiState = async function (verificationCounts) {
           break;
 
         case 'report':
-          if(!this.status.reported){
+          if (!this.status.reported) {
             this.status.reported = true;
             this.status.reportedAt = timestamp;
           }
@@ -182,7 +183,7 @@ hazardSchema.methods.updateMultiState = async function (verificationCounts) {
           break;
 
         case 'end':
-          if(!this.status.ended){
+          if (!this.status.ended) {
             this.status.ended = true;
             this.status.endedAt = timestamp;
           }

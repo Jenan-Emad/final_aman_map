@@ -632,8 +632,8 @@
 
 .leaflet-container {
     height: 60vh !important;
-    min-height: 450px;
-    max-height: 600px;
+    min-height: 555px;
+    max-height: none; 
 }
 
 .aman-map-app {
@@ -650,5 +650,3 @@
 .app-footer {
     margin-top: auto;
 }
-
-

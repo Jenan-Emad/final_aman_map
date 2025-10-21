@@ -11,14 +11,28 @@ export const addLog = async (data) => {
         message: error.details[0].message,
       }
     }
+    // const isValid = await Log.validateLastActivation((data.verifyingDevice, data.verificationType));
+    // if (!isValid) {
+      // if (!Log.validateLastActivation(data.verifyingDevice, data.verificationType)) {
+      // ✅ FIXED - Properly awaited
+const isRecentlyActivated = await Log.validateLastActivation(
+  data.verifyingDevice, 
+  data.verificationType
+);
 
-    if (!Log.validateLastActivation(data.verifyingDevice, data.verificationType)) {
-      return {
-        success: false,
-        status: 400,
-        message: "Device has already activated a log recently",
-      }
-    }
+if (!isRecentlyActivated) {
+  return {
+    success: false,
+    status: 429, // Too Many Requests
+    message: "يجب الانتظار 10 دقيقة قبل تنفيذ نفس الإجراء مرة أخرى",
+  }
+}
+      // return {
+      //   success: false,
+      //   status: 400,
+      //   message: "Device has already activated a log recently",
+      // }
+    // }
     console.log("log data", data);
     const log = await Log.create(data);
     console.log("created log", log);

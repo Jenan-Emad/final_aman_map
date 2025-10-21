@@ -97,15 +97,15 @@ deviceSchema.statics.validateUserLocation = async function (ipAddress) {
 
     // Validate with MaxMind
     const DeviceLocationCity = await client.city(ipAddress);
-    
+
     // Check if city is Gaza
     if (DeviceLocationCity.city && DeviceLocationCity.city.names.en === "Gaza") {
       return true;
     }
 
     // Also check country for broader validation
-    if (DeviceLocationCity.country && 
-        DeviceLocationCity.country.names.en === "Palestine") {
+    if (DeviceLocationCity.country &&
+      DeviceLocationCity.country.names.en === "Palestine") {
       return true;
     }
 
@@ -113,7 +113,7 @@ deviceSchema.statics.validateUserLocation = async function (ipAddress) {
       city: DeviceLocationCity.city?.names.en,
       country: DeviceLocationCity.country?.names.en
     });
-    
+
     return false;
   } catch (err) {
     console.error("GeoIP lookup failed:", err);
@@ -122,6 +122,7 @@ deviceSchema.statics.validateUserLocation = async function (ipAddress) {
     return process.env.NODE_ENV === 'development' ? true : false;
   }
 };
+
 
 // Validate visitor ID exists (for checking existing devices)
 deviceSchema.statics.validateVisitorId = async function (visitorId) {
@@ -136,9 +137,10 @@ deviceSchema.statics.validateIpAddress = async function (ipAddress) {
 };
 
 // Update last active timestamp
-deviceSchema.methods.updateActivity = async function() {
+deviceSchema.methods.updateActivity = async function () {
   this.lastActive = new Date();
   return this.save();
 };
+
 
 export default dbConnection.model("Device", deviceSchema);

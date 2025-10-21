@@ -154,6 +154,42 @@ function App() {
     }
   }, [zones]);
 
+// const handleAction = useCallback(async (zoneId: string, actionType: 'document' | 'report' | 'end') => {
+//     const sessionId = getSessionId();
+
+//     const zone = zones.find(z => z.id === zoneId);
+//     if (!zone) {
+//       showToast('لم يتم العثور على المنطقة', 'error');
+//       return;
+//     }
+
+//     try {
+//       const result = await zonesAPI.performAction(zoneId, actionType);
+
+//       if (result.success) {
+//         showToast(result.message, 'success');
+//         await loadHazards();
+//       } else {
+//         // Check if it's a cooldown error
+//         if (result.message.includes('10 دقيقة')) {
+//           showToast('⏳ ' + result.message, 'warning');
+//         } else {
+//           showToast(result.message, 'error');
+//         }
+//       }
+//     } catch (error: any) {
+//       console.error('Error performing action:', error);
+      
+//       // Handle specific error codes
+//       if (error.response?.status === 429) {
+//         showToast(' يجب الانتظار 10 دقيقة قبل تنفيذ نفس الإجراء مرة أخرى', 'warning');
+//       } else {
+//         showToast('فشل في تنفيذ الإجراء', 'error');
+//       }
+//     }
+//   }, [zones]);
+
+
   const handleAboutClick = useCallback(() => {
     setShowAboutModal(true);
   }, []);
