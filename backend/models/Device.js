@@ -16,38 +16,20 @@ const deviceSchema = new mongoose.Schema({
 // Validation functions
 
 // Validate user location using MaxMind GeoIP
+
 deviceSchema.statics.validateUserLocation = async function (ipAddress) {
   try {
-    // Skip validation for localhost/development
-    if (ipAddress === '127.0.0.1' || ipAddress === '::1' || ipAddress === '0.0.0.0') {
-      console.log("Development mode: Skipping location validation");
-      return true;
-    }
-
-    // Validate with MaxMind
     const DeviceLocationCity = await client.city(ipAddress);
-
-    // Check if city is Gaza
-    if (DeviceLocationCity.city && DeviceLocationCity.city.names.en === "Gaza") {
-      return true;
+    if (!DeviceLocationCity.city ||DeviceLocationCity.city.names.en !== "Gaza") {
+      return false;
     }
-
-    // Also check country for broader validation
-    if (DeviceLocationCity.country &&
-      DeviceLocationCity.country.names.en === "Palestine") {
-      return true;
-    }
-
-    console.log("Location validation failed:", {
-      city: DeviceLocationCity.city?.names.en,
-      country: DeviceLocationCity.country?.names.en
-    });
-
-    return false;
+    return true;
   } catch (err) {
     console.error("GeoIP lookup failed:", err);
+    return false; // On error, consider location invalid
   }
 };
+ 
 
 // Validate visitor ID exists (for checking existing devices)
 deviceSchema.statics.validateVisitorId = async function (visitorId) {

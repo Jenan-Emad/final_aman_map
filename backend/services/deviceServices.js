@@ -13,6 +13,19 @@ export const addDevice = async (data) => {
     };
   }
 
+    // validate device fields
+  const isUserLocationValid = await Device.validateUserLocation(data.ipAddress);
+  const isVisitorIdValid = await Device.validateVisitorId(data.visitorId);
+  const isIpAddressValid = await Device.validateIpAddress(data.ipAddress);
+  
+  if (!isUserLocationValid || !isVisitorIdValid || !isIpAddressValid) {
+    return {
+      success: false,
+      status: 400,
+      message: "Something is wrong with your device",
+    };
+  }
+
   try {
     // Check if device already exists
     let existingDevice = await Device.findOne({ 

@@ -22,7 +22,7 @@ const reportSchema = new mongoose.Schema({
 //validate if it included in confirmations
 reportSchema.methods.validateNotConfirmed = async function (visitorId) {
   const device = await Device.findOne({ visitorId });
-  if (!device) return false;
+  if (!device) return true;
 
   const alreadyConfirmed = this.confirmations.some(
     (id) => id.toString() === device._id.toString()

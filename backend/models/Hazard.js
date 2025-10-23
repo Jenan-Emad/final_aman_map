@@ -49,36 +49,64 @@ const hazardSchema = new mongoose.Schema({
 
 hazardSchema.index({ geometry: "2dsphere" });
 
-// Gaza simplified polygon (lng, lat)
-const GAZA_POLYGON = [
-  [34.216, 31.353],
-  [34.232, 31.568],
-  [34.552, 31.586],
-  [34.556, 31.333],
-  [34.219, 31.22],
-  [34.216, 31.353], // closed polygon
-];
 
 //validation functions
 
 //validate hazard location
 hazardSchema.statics.pointInGazaPolygon = function (lat, lng) {
+  const gazaBounds = {
+    north: 31.59,
+    south: 31.22,
+    east: 34.57,
+    west: 34.22
+  };
+  
+  const inBoundingBox = 
+    lat >= gazaBounds.south && 
+    lat <= gazaBounds.north && 
+    lng >= gazaBounds.west && 
+    lng <= gazaBounds.east;
+  
+  if (!inBoundingBox) {
+    return false;
+  }
+  
+  const gazaPolygon = [
+    [31.59, 34.49],
+    [31.52, 34.49],
+    [31.47, 34.44],
+    [31.42, 34.39],
+    [31.38, 34.37],
+    [31.35, 34.35],
+    [31.31, 34.33],
+    [31.28, 34.31],
+    [31.22, 34.25],
+    [31.22, 34.22],
+    [31.25, 34.22],
+    [31.28, 34.22],
+    [31.35, 34.22],
+    [31.42, 34.22],
+    [31.47, 34.22],
+    [31.52, 34.22],
+    [31.59, 34.28]
+  ];
+  
+  return isPointInPolygon(lat, lng, gazaPolygon);
+}
+
+function isPointInPolygon(lat, lng, polygon) {
   let inside = false;
-  for (
-    let i = 0, j = GAZA_POLYGON.length - 1;
-    i < GAZA_POLYGON.length;
-    j = i++
-  ) {
-    const xi = GAZA_POLYGON[i][0],
-      yi = GAZA_POLYGON[i][1];
-    const xj = GAZA_POLYGON[j][0],
-      yj = GAZA_POLYGON[j][1];
-
-    const intersect =
-      yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
-
+  
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const [lati, lngi] = polygon[i];
+    const [latj, lngj] = polygon[j];
+    
+    const intersect = ((lngi > lng) !== (lngj > lng)) &&
+      (lat < (latj - lati) * (lng - lngi) / (lngj - lngi) + lati);
+    
     if (intersect) inside = !inside;
   }
+  
   return inside;
 };
 

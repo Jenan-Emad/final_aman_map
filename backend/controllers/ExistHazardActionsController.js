@@ -3,6 +3,7 @@ import {
   addLog,
   addDevice,
   updateHazardData,
+  updateVerificationSummary
 } from "../services/index.js";
 import { Report } from "../models/index.js";
 
@@ -60,7 +61,7 @@ const existHazardAction1 = async (req, res, next) => {
       }
       return res.status(201).send({
         message: "تمت عملية إنشاء التقرير بنجاح",
-        report,
+        report: newReportResult.report,
       });
     }
 
@@ -78,11 +79,13 @@ const existHazardAction1 = async (req, res, next) => {
 
       // add this device to report confirmations
       report.confirmations = report.confirmations || [];
-      await report.confirmations.push(deviceResult.device._id);
+      report.confirmations.push(deviceResult.device._id);
       await report.save();
 
       //update the hazard data
       await updateHazardData(report.hazard);
+      await updateVerificationSummary(req.body.verificationType, report.hazard);
+      
 
       // add log entry (assumes addLog returns a promise)
       const log = await addLog({

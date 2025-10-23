@@ -11,22 +11,19 @@ export const createHazard = async (data) => {
         message: error.details[0].message,
       };
     }
-    const insideGaza = Hazard.pointInGazaPolygon(
-      data.geometry.coordinates[1],
-      data.geometry.coordinates[0]
-    );
+    const [lng, lat] = data.geometry.coordinates
+
+    const insideGaza = Hazard.pointInGazaPolygon(lat, lng);
     if (!insideGaza) {
       return {
         success: false,
         status: 400,
-        message: "the hazard location must be within Gaza",
+        message: "يجب أن تكون منطقة الخطر داخل حدود قطاع غزة",
       };
     }
 
     console.log("hazard data", data);
     const hazard = await Hazard.create(data);
-    // hazard.verificationSummary.documentCount++;
-    // await hazard.save();
 
     console.log("created hazard", hazard);
     return {
@@ -72,3 +69,24 @@ export const updateHazardData = async (hazardId) => {
     };
   }
 };
+
+export const updateVerificationSummary = async  (verificationType, hazardId) =>{
+const hazard = await Hazard.findById(hazardId);
+if(!hazard) {
+  return {
+        success: false,
+        status: 404,
+        message: "Hazard not found",
+      };
+}
+  switch (verificationType) {
+    case "document": hazard.verificationSummary.documentCount++;
+    break;
+    case "report": hazard.verificationSummary.reportCount++;
+    break;
+    case "end": hazard.verificationSummary.endRequestCount++;
+    break;
+  }
+await hazard.save();
+
+}
