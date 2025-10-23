@@ -4,6 +4,6 @@ import {errorHandler} from "../middlewares/errorHandler.js";
 
 const router = express.Router();
 
-router.post("/hazardAction",  existHazardAction1);
+router.post("/hazardAction",  errorHandler, existHazardAction1);
 
 export default router;

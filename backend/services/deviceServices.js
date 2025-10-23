@@ -1,5 +1,6 @@
 import Device from "../models/Device.js";
 import { deviceValidator } from "../validation/index.js";
+import Log from "../models/Log.js";
 
 export const addDevice = async (data) => {
   // validate input data
@@ -19,6 +20,22 @@ export const addDevice = async (data) => {
     });
 
     if (existingDevice) {
+      const isUserActivationValid = await Log.validateLastActivation(
+        data.visitorId,
+        data.verificationType
+      );
+      if (!isUserActivationValid) {
+        console.log(
+          "Device activation too recent for visitorId:",
+          data.visitorId
+        );
+        return {
+          success: false,
+          status: 400,
+          message:
+            "الجهاز قام بتفعيل هذا النوع من السجلات مؤخراً. الرجاء الانتظار قبل المحاولة مرة أخرى.",
+        };
+      }
       // Device exists, return it
       console.log("Device already exists:", existingDevice);
       return {
@@ -26,17 +43,6 @@ export const addDevice = async (data) => {
         status: 200,
         message: "Device already registered",
         device: existingDevice,
-      };
-    }
-
-    // Validate device fields only for new devices
-    const isUserLocationValid = await Device.validateUserLocation(data.ipAddress);
-    
-    if (!isUserLocationValid) {
-      return {
-        success: false,
-        status: 400,
-        message: "يجب أن تكون موجوداً في قطاع غزة لاستخدام التطبيق",
       };
     }
 
