@@ -4,7 +4,7 @@ import AboutModal from './components/AboutModal';
 import AboutSection from './components/AboutSection';
 import Footer from './components/Footer';
 import 'bootstrap/dist/css/bootstrap.css';
-import imagePath from './assets/location-pin.png';
+import imagePath from './assets/logoooo.png';
 import './App.css';
 import type { DANGER_ZONE } from "./types";
 // import { REQUIRED_VERIFICATIONS } from "./types";
