@@ -15,10 +15,8 @@ export const addDevice = async (data) => {
 
     // validate device fields
   const isUserLocationValid = await Device.validateUserLocation(data.ipAddress);
-  const isVisitorIdValid = await Device.validateVisitorId(data.visitorId);
-  const isIpAddressValid = await Device.validateIpAddress(data.ipAddress);
   
-  if (!isUserLocationValid || !isVisitorIdValid || !isIpAddressValid) {
+  if (!isUserLocationValid) {
     return {
       success: false,
       status: 400,
@@ -46,7 +44,7 @@ export const addDevice = async (data) => {
           success: false,
           status: 400,
           message:
-            "الجهاز قام بتفعيل هذا النوع من السجلات مؤخراً. الرجاء الانتظار قبل المحاولة مرة أخرى.",
+           "يجب الإنتظار قبل إنشاء تقرير جديد",
         };
       }
       // Device exists, return it

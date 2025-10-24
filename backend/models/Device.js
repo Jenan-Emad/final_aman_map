@@ -31,17 +31,4 @@ deviceSchema.statics.validateUserLocation = async function (ipAddress) {
 };
  
 
-// Validate visitor ID exists (for checking existing devices)
-deviceSchema.statics.validateVisitorId = async function (visitorId) {
-  const device = await this.findOne({ visitorId: visitorId });
-  return device !== null;
-};
-
-// Validate IP address exists (for checking existing devices)
-deviceSchema.statics.validateIpAddress = async function (ipAddress) {
-  const device = await this.findOne({ ipAddress: ipAddress });
-  return device !== null;
-};
-
-
 export default dbConnection.model("Device", deviceSchema);
