@@ -20,7 +20,8 @@ const deviceSchema = new mongoose.Schema({
 deviceSchema.statics.validateUserLocation = async function (ipAddress) {
   try {
     const DeviceLocationCity = await client.city(ipAddress);
-    if (!DeviceLocationCity.city ||DeviceLocationCity.city.names.en !== "Gaza") {
+    if (DeviceLocationCity.city.names.en !== "Gaza") {
+      console.log("Invalid city:", DeviceLocationCity.city);
       return false;
     }
     return true;
